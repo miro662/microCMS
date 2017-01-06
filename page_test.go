@@ -10,7 +10,7 @@ import (
 
 var testPage = Page{
 	template: sql.NullString{String: "test", Valid: true},
-	data:     "",
+	Data:     "",
 }
 
 //TestSimplePage tests rendering of simple page
@@ -18,11 +18,11 @@ func TestSimplePage(t *testing.T) {
 	err := json.Unmarshal([]byte(`{
         "Title": "Title",
         "Content": "Content"
-    }`), &testPage.data)
+    }`), &testPage.Data)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
-	Templates["test"], _ = template.New("test").Parse("<h1>{{.Title}}</h1><p>{{.Content}}</p>")
+	Templates["test"], _ = template.New("test").Parse("<h1>{{.Data.Title}}</h1><p>{{.Data.Content}}</p>")
 	buf := new(bytes.Buffer)
 	err = testPage.Render(buf)
 	if err != nil {

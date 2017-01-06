@@ -30,6 +30,6 @@ func (page *Page) Render(w io.Writer) error {
 	}
 
 	// Render assigned template
-	err := tmpl.Execute(w, page.data)
+	err := tmpl.Execute(w, page)
 	return err
 }

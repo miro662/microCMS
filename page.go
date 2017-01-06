@@ -10,5 +10,5 @@ type Page struct {
 	name     string
 	parent   sql.NullInt64
 	template sql.NullString
-	data     interface{}
+	Data     interface{}
 }

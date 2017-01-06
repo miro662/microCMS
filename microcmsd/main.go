@@ -11,15 +11,16 @@ import (
 )
 
 func main() {
-	db, err := sql.Open("postgres", "user=miroslav dbname=microcms sslmode=disable")
+	var err error
+	microcms.Db, err = sql.Open("postgres", "user=miroslav dbname=microcms sslmode=disable")
 	if err != nil {
 		log.Fatal(err)
 	}
-	err = microcms.Schema(db)
+	err = microcms.Schema()
 	if err != nil {
 		log.Fatal(err)
 	}
-	http.HandleFunc("/", getHandler(db))
+	http.HandleFunc("/", getHandler(nil))
 	http.ListenAndServe(":1488", nil)
 }
 
@@ -31,7 +32,8 @@ func getHandler(db *sql.DB) func(res http.ResponseWriter, req *http.Request) {
 				route = string(route[:len(route)-1])
 			}
 		}
-		page, err := microcms.PageByRoute(route, db)
+		page, err := microcms.PageByRoute(route)
+		if err != nil {
 			if err == microcms.ErrPageNotFound {
 				http.Error(res, "Page not found: "+route, 404)
 			} else {

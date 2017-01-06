@@ -1,1 +1,5 @@
-<h1>{{.Title}}</h1><p>{{.Content}}</p>
+{{with .Parent}}
+    {{.Data.Title}}
+{{else}}
+    <h1>I'm parent</h1>
+{{end}}

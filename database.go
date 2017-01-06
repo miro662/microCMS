@@ -39,12 +39,15 @@ const schema = `
     select distinct route, page_id from routes;
 `
 
+// Db describes database connection used by model
+var Db *sql.DB
+
 // ErrPageNotFound is returned when page is not found in database
 var ErrPageNotFound = errors.New("Page not found")
 
 // Schema creates database schema
-func Schema(db *sql.DB) error {
-	_, err := db.Exec(schema)
+func Schema() error {
+	_, err := Db.Exec(schema)
 	return err
 }
 
@@ -55,35 +58,34 @@ func fromRow(row *sql.Row) (Page, error) {
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return Page{}, ErrPageNotFound
-		} else {
-			return Page{}, err
 		}
+		return Page{}, err
 	}
-	err = json.Unmarshal(jsonData, &page.data)
+	err = json.Unmarshal(jsonData, &page.Data)
 	return page, err
 }
 
 // PageByID gets page which has given ID
-func PageByID(id int, db *sql.DB) (Page, error) {
-	row := db.QueryRow("SELECT * FROM pages WHERE id = $1", id)
+func PageByID(id int) (Page, error) {
+	row := Db.QueryRow("SELECT * FROM pages WHERE id = $1", id)
 	return fromRow(row)
 }
 
 // PageByRoute gets page which has given route
-func PageByRoute(route string, db *sql.DB) (Page, error) {
-	row := db.QueryRow("SELECT p.* FROM pages p JOIN routes_v r ON (p.id = r.page_id) WHERE r.route = $1", route)
+func PageByRoute(route string) (Page, error) {
+	row := Db.QueryRow("SELECT p.* FROM pages p JOIN routes_v r ON (p.id = r.page_id) WHERE r.route = $1", route)
 	return fromRow(row)
 }
 
 // Parent returns page's parent
-func (p *Page) Parent(db *sql.DB) (Page, error) {
-	row := db.QueryRow("SELECT p.* FROM pages c JOIN pages p ON (p.id = c.parent) WHERE c.id = $1", p.id)
+func (p *Page) Parent() (Page, error) {
+	row := Db.QueryRow("SELECT p.* FROM pages c JOIN pages p ON (p.id = c.parent) WHERE c.id = $1", p.id)
 	return fromRow(row)
 }
 
 // Children returns page's children
-func (p *Page) Children(db *sql.DB) ([]Page, error) {
-	rows, err := db.Query("SELECT * FROM pages WHERE parent = $1", p.id)
+func (p *Page) Children() ([]Page, error) {
+	rows, err := Db.Query("SELECT * FROM pages WHERE parent = $1", p.id)
 	defer rows.Close()
 	if err != nil {
 		return []Page{}, err
@@ -97,7 +99,7 @@ func (p *Page) Children(db *sql.DB) ([]Page, error) {
 		if err != nil {
 			return []Page{}, err
 		}
-		err = json.Unmarshal(jsonData, &page.data)
+		err = json.Unmarshal(jsonData, &page.Data)
 		if err != nil {
 			return []Page{}, err
 		}
