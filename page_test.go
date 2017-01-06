@@ -1,30 +1,30 @@
-package mircocms
+package microcms
 
 import (
 	"bytes"
 	"database/sql"
+	"encoding/json"
 	"html/template"
 	"testing"
 )
 
-type staticPageData struct {
-	Title   string
-	Content string
-}
-
 var testPage = Page{
 	template: sql.NullString{String: "test", Valid: true},
-	data: staticPageData{
-		Title:   "Title",
-		Content: "Content",
-	},
+	data:     "",
 }
 
 //TestSimplePage tests rendering of simple page
 func TestSimplePage(t *testing.T) {
+	err := json.Unmarshal([]byte(`{
+        "Title": "Title",
+        "Content": "Content"
+    }`), &testPage.data)
+	if err != nil {
+		t.Errorf(err.Error())
+	}
 	Templates["test"], _ = template.New("test").Parse("<h1>{{.Title}}</h1><p>{{.Content}}</p>")
 	buf := new(bytes.Buffer)
-	err := testPage.Render(buf)
+	err = testPage.Render(buf)
 	if err != nil {
 		t.Errorf("Rendering error: %v", err.Error())
 	}

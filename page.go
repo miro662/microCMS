@@ -1,4 +1,4 @@
-package mircocms
+package microcms
 
 import (
 	"database/sql"
