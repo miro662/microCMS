@@ -3,7 +3,6 @@ package microcms
 import (
 	"database/sql"
 	"encoding/json"
-	"errors"
 )
 
 const schema = `
@@ -44,55 +43,27 @@ const schema = `
 // Db describes database connection used by model
 var Db *sql.DB
 
-// ErrPageNotFound is returned when page is not found in database
-var ErrPageNotFound = errors.New("Page not found")
-
 // Schema creates database schema
 func Schema() error {
 	_, err := Db.Exec(schema)
 	return err
 }
 
-func fromRow(row *sql.Row) (Page, error) {
+func fromRow(row *sql.Row) (*Page, error) {
 	var page = Page{}
 	var jsonData []byte
 	err := row.Scan(&page.id, &page.name, &page.parent, &page.template, &jsonData)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return Page{}, ErrPageNotFound
+			return nil, nil
 		}
-		return Page{}, err
+		return nil, err
 	}
 	err = json.Unmarshal(jsonData, &page.Data)
-	return page, err
+	return &page, err
 }
 
-// PageByID gets page which has given ID
-func PageByID(id int) (Page, error) {
-	row := Db.QueryRow("SELECT * FROM pages WHERE id = $1", id)
-	return fromRow(row)
-}
-
-// PageByRoute gets page which has given route
-func PageByRoute(route string) (Page, error) {
-	row := Db.QueryRow("SELECT p.* FROM pages p JOIN routes_v r ON (p.id = r.page_id) WHERE r.route = $1", route)
-	return fromRow(row)
-}
-
-// Parent returns page's parent
-func (p *Page) Parent() (Page, error) {
-	row := Db.QueryRow("SELECT p.* FROM pages c JOIN pages p ON (p.id = c.parent) WHERE c.id = $1", p.id)
-	return fromRow(row)
-}
-
-// Children returns page's children
-func (p *Page) Children() ([]Page, error) {
-	rows, err := Db.Query("SELECT * FROM pages WHERE parent = $1", p.id)
-	defer rows.Close()
-	if err != nil {
-		return []Page{}, err
-	}
-
+func fromRows(rows *sql.Rows) ([]Page, error) {
 	pages := make([]Page, 0)
 	for rows.Next() {
 		var page = Page{}
@@ -108,9 +79,38 @@ func (p *Page) Children() ([]Page, error) {
 		pages = append(pages, page)
 	}
 	if len(pages) == 0 {
-		return []Page{}, ErrPageNotFound
+		return []Page{}, nil
 	}
 	return pages, nil
+}
+
+// PageByID gets page which has given ID
+func PageByID(id int) (*Page, error) {
+	row := Db.QueryRow("SELECT * FROM pages WHERE id = $1", id)
+	return fromRow(row)
+}
+
+// PageByRoute gets page which has given route
+func PageByRoute(route string) (*Page, error) {
+	row := Db.QueryRow("SELECT p.* FROM pages p JOIN routes_v r ON (p.id = r.page_id) WHERE r.route = $1", route)
+	return fromRow(row)
+}
+
+// Parent returns page's parent
+func (p *Page) Parent() (*Page, error) {
+	row := Db.QueryRow("SELECT p.* FROM pages c JOIN pages p ON (p.id = c.parent) WHERE c.id = $1", p.id)
+	return fromRow(row)
+}
+
+// Children returns page's children
+func (p *Page) Children() ([]Page, error) {
+	rows, err := Db.Query("SELECT * FROM pages WHERE parent = $1", p.id)
+	defer rows.Close()
+	if err != nil {
+		return []Page{}, err
+	}
+
+	return fromRows(rows)
 }
 
 // Route returns page's route
@@ -119,4 +119,15 @@ func (p *Page) Route() (string, error) {
 	var route string
 	err := row.Scan(&route)
 	return route, err
+}
+
+// Root returns' pages without parents
+func Root() ([]Page, error) {
+	rows, err := Db.Query("SELECT * FROM pages WHERE parent IS NULL")
+	defer rows.Close()
+	if err != nil {
+		return []Page{}, err
+	}
+
+	return fromRows(rows)
 }

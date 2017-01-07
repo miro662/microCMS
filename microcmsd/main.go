@@ -53,22 +53,24 @@ func stripRoute(route string) string {
 }
 
 func handler(res http.ResponseWriter, req *http.Request) {
-	log.Printf("[%s] %q\n", req.Method, req.URL.String())
+	log.Printf("[%s] %q from %v\n", req.Method, req.URL.String(), req.RemoteAddr)
 	// Search for page with given route
 	page, err := microcms.PageByRoute(stripRoute(req.RequestURI))
-	if err == nil {
+	if err == nil && page != nil {
 		// Show page
 		err := page.Render(res)
 		if err != nil {
 			// Error rendering page :(
 			errorHandler(res, req, 500)
+			log.Printf("Rendering error: %v\n", err.Error())
 		}
 	} else {
-		if err == microcms.ErrPageNotFound {
+		if err == nil && page == nil {
 			// Show 404
 			errorHandler(res, req, 404)
 		} else {
 			errorHandler(res, req, 500)
+			log.Printf("HTTP hanlder error: %v\n", err.Error())
 		}
 	}
 }
