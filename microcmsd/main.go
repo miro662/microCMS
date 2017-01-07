@@ -1,51 +1,83 @@
 package main
 
 import (
-	"database/sql"
 	"log"
 	"net/http"
+	"os"
+
+	"database/sql"
 
 	"github.com/miro662/microcms"
 
 	_ "github.com/lib/pq"
 )
 
+var fileServer http.Handler
+
 func main() {
+	// Get enviroment variables
+	addr := os.Getenv("MICROCMSD_ADDR")
+	if addr == "" {
+		addr = ":8080"
+	}
+	dbAddr := os.Getenv("MICROCMSD_DB")
+	if dbAddr == "" {
+		log.Fatal("Enviroment variable MICROCMSD_DB empty; set MICROCMSD_DB to PostgreSQL connection string")
+	}
+
+	// Try to connect to database
 	var err error
-	microcms.Db, err = sql.Open("postgres", "user=miroslav dbname=microcms sslmode=disable")
+	microcms.Db, err = sql.Open("postgres", dbAddr)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Cannot connect to database: %v", err.Error())
 	}
-	err = microcms.Schema()
-	if err != nil {
-		log.Fatal(err)
-	}
-	http.HandleFunc("/", getHandler(nil))
-	http.ListenAndServe(":1488", nil)
+
+	// Apply static files serving
+	fs := http.FileServer(http.Dir("static"))
+	http.Handle("/static/", http.StripPrefix("/static/", fs))
+
+	// Apply main handler
+	http.HandleFunc("/", handler)
+
+	// Listen
+	http.ListenAndServe(addr, nil)
 }
 
-func getHandler(db *sql.DB) func(res http.ResponseWriter, req *http.Request) {
-	return func(res http.ResponseWriter, req *http.Request) {
-		route := req.RequestURI
-		if route != "/" {
-			if route[(len(route)-1):] == "/" {
-				route = string(route[:len(route)-1])
-			}
+func stripRoute(route string) string {
+	if route != "/" {
+		if route[(len(route)-1):] == "/" {
+			route = string(route[:len(route)-1])
 		}
-		page, err := microcms.PageByRoute(route)
+	}
+	return route
+}
+
+func handler(res http.ResponseWriter, req *http.Request) {
+	log.Printf("[%s] %q\n", req.Method, req.URL.String())
+	// Search for page with given route
+	page, err := microcms.PageByRoute(stripRoute(req.RequestURI))
+	if err == nil {
+		// Show page
+		err := page.Render(res)
 		if err != nil {
-			if err == microcms.ErrPageNotFound {
-				http.Error(res, "Page not found: "+route, 404)
-			} else {
-				http.Error(res, err.Error(), 500)
-				log.Fatal(err)
-			}
-		} else {
-			err = page.Render(res)
-			if err != nil {
-				http.Error(res, err.Error(), 500)
-				log.Fatal(err)
-			}
+			// Error rendering page :(
+			errorHandler(res, req, 500)
 		}
+	} else {
+		if err == microcms.ErrPageNotFound {
+			// Show 404
+			errorHandler(res, req, 404)
+		} else {
+			errorHandler(res, req, 500)
+		}
+	}
+}
+
+func errorHandler(res http.ResponseWriter, req *http.Request, status int) {
+	// Write status header
+	res.WriteHeader(status)
+	// If 404, show 404 template
+	if status == 404 {
+		microcms.Template.ExecuteTemplate(res, "404.html", nil)
 	}
 }
