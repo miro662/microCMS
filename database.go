@@ -36,7 +36,9 @@ const schema = `
         from routes r
         join pages p on (r.page_id = p.parent)
     )
-    select distinct route, page_id from routes;
+    select distinct on (route) route, page_id
+	from routes p
+	order by char_length(route);
 `
 
 // Db describes database connection used by model
@@ -109,4 +111,12 @@ func (p *Page) Children() ([]Page, error) {
 		return []Page{}, ErrPageNotFound
 	}
 	return pages, nil
+}
+
+// Route returns page's route
+func (p *Page) Route() (string, error) {
+	row := Db.QueryRow("SELECT route FROM routes_v WHERE page_id = $1", p.id)
+	var route string
+	err := row.Scan(&route)
+	return route, err
 }
