@@ -24,12 +24,7 @@ func (page *Page) Render(w io.Writer) error {
 		return ErrNotRenderable
 	}
 
-	tmpl := Templates[page.template.String]
-	if tmpl == nil {
-		return ErrTemplateNotFound
-	}
-
 	// Render assigned template
-	err := tmpl.Execute(w, page)
+	err := Template.ExecuteTemplate(w, page.template.String, page)
 	return err
 }

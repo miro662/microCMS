@@ -38,7 +38,7 @@ const schema = `
     )
     select distinct on (route) route, page_id
 	from routes p
-	order by char_length(route);
+	order by route, char_length(route);
 `
 
 // Db describes database connection used by model
