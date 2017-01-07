@@ -9,12 +9,23 @@ import (
 
 	"github.com/miro662/microcms"
 
+	"path"
+
 	_ "github.com/lib/pq"
 )
 
 var fileServer http.Handler
 
 func main() {
+	// Get working directory
+	if len(os.Args) == 1 {
+		microcms.Dir = "."
+	} else {
+		microcms.Dir = os.Args[1]
+	}
+
+	microcms.LoadTemplates()
+
 	// Get enviroment variables
 	addr := os.Getenv("MICROCMSD_ADDR")
 	if addr == "" {
@@ -32,8 +43,14 @@ func main() {
 		log.Fatalf("Cannot connect to database: %v", err.Error())
 	}
 
+	// Apply DB schema
+	err = microcms.Schema()
+	if err != nil {
+		log.Fatalf("Schema eror: %v", err.Error())
+	}
+
 	// Apply static files serving
-	fs := http.FileServer(http.Dir("static"))
+	fs := http.FileServer(http.Dir(path.Join(microcms.Dir, "static")))
 	http.Handle("/static/", http.StripPrefix("/static/", fs))
 
 	// Apply main handler
